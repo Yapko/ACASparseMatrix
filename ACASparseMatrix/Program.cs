@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
-using MathNet.Numerics.LinearAlgebra.Double;
+using MathNet.Numerics.LinearAlgebra.Single;
 
 namespace ACASparseMatrix
 {
@@ -12,10 +12,13 @@ namespace ACASparseMatrix
         {
             DenseVector d = new DenseVector(20);
 
+            
             foreach (double t in d)
             {
                 Console.WriteLine(t);
             }
+
+            
         }
     }
 }
