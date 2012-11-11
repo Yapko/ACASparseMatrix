@@ -42,6 +42,20 @@ namespace ACASparseMatrix
             throw new NotImplementedException();
         }
 
+        public  ACAStruct this[int index]
+        {
+            get
+            {
+                return compressed[index];
+            }
+
+            set
+            {
+                compressed[index] = value;
+            }
+       
+        }
+
         public int Count
         {
             get

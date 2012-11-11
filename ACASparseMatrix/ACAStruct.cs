@@ -103,7 +103,7 @@ namespace ACASparseMatrix
             {
                 return comp;
             }
-        }
+       public  }
 
         /// <summary>
         /// property to return self
@@ -116,7 +116,7 @@ namespace ACASparseMatrix
             }
         }
 
-        int MMax
+       public  int MMax
         {
             get
             {
@@ -145,6 +145,50 @@ namespace ACASparseMatrix
             get
             {
                 return nMin;
+            }
+        }
+        #endregion
+
+    }
+}
+
+        public List<int> GetM
+        {
+            get
+            {
+                return m;
+            }
+        }
+
+        public List<int> GetN
+        {
+            get
+            {
+                return n;
+            }
+        }
+
+        public Matrix Z_Matrix
+        {
+            get
+            {
+                return Z;
+            }
+        }
+
+        public Vector U_Vector
+        {
+            get
+            {
+                return U;
+            }
+        }
+
+        public Vector V_Vector
+        {
+            get
+            {
+                return V;
             }
         }
         #endregion
