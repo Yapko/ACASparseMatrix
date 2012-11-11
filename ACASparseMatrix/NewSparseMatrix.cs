@@ -16,9 +16,10 @@ namespace ACASparseMatrix
     /// </summary>
     public class NewSparseMatrix:Matrix
     {
+        List<ACAStruct> compressed;
         public NewSparseMatrix():base(1,1)
         {
-
+            compressed = new List<ACAStruct>();
         }
 
         public override double At(int row, int column)
