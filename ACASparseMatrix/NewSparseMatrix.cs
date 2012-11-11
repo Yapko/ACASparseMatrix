@@ -41,5 +41,13 @@ namespace ACASparseMatrix
         {
             throw new NotImplementedException();
         }
+
+        public int Count
+        {
+            get
+            {
+                return compressed.Count;
+            }
+        }
     }
 }
