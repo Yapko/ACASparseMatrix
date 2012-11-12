@@ -1,0 +1,165 @@
+% ACAsolver
+%
+% Fast iterative solver for compressible linear systems
+% with multilevel Adaptive Cross Approximation (ACA) matrix compression
+%
+% Although the solver has been developed for Electromagnetic Integral Equation
+% problems discretized by Method of Moments (MoM), it can be applied to any physics
+% or engineering linear system of equations with a compressible matrix that contains
+% rank-deficient pseudo-submatrices.
+%
+% Solve: Z*J = Ei
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% USER FUNCTIONS (must be created by the user to solve his particular linear system):
+% 
+% Functions that encapsulate user data:
+% EM_data = user_set_EM_data()
+% OG_data = user_obj_geom_data(EM_data)
+%
+% Functions that compute the linear system:
+% user_impedance(m, n, OG_data, EM_data): Returns submatrix of Z with row indices m and column indices n
+% user_compute_Ei(OG_data, EM_data):      Returns excitation vector Ei
+%
+% Functions that allow the solver to access user data:
+% user_get_OG_basis_center(OG_data):      Returns center of basis functions
+%
+% Functions to post-process data
+% user_plot_obj_current(J,OG_data,EM_data) Plot current and object boundary
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% 
+% Adaptive Cross Approximation developped by:
+% M. Bebendorf, "Approximation of boundary element matrices", 
+% Numer. Math., vol. 86, no. 4, pp. 565-589, Jun. 2000.
+%
+% Juan M. Rius, AntennaLab, Universitat Politecnica de Catalunya (Spain), v1.0.2, January 2008
+
+% /***************************************************************************
+%  *   Copyright (C) 2007 by Juan M. Rius                                    *
+%  *   AntennaLab, Universitat Politecnica de Catalunya, rius@tsc.upc.edu    *
+%  *                                                                         *
+%  *   This program is free software; you can redistribute it and/or modify  *
+%  *   it under the terms of the GNU General Public License as published by  *
+%  *   the Free Software Foundation; either version 2 of the License, or     *
+%  *   (at your option) any later version.                                   *
+%  *                                                                         *
+%  *   This program is distributed in the hope that it will be useful,       *
+%  *   but WITHOUT ANY WARRANTY; without even the implied warranty of        *
+%  *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the         *
+%  *   GNU General Public License for more details.                          *
+%  *                                                                         *
+%  *   You should have received a copy of the GNU General Public License     *
+%  *   along with this program; if not, write to the                         *
+%  *   Free Software Foundation, Inc.,                                       *
+%  *   59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             *
+%  ***************************************************************************/
+
+%% BEGIN User configurable parameters 
+finest_level_size = 0.1;% Size of finest level (lambdas) of multilevel subdivision
+ACA_thres = 1e-3;       % Relative error threshold to stop adding rows and columns in ACA iteration
+precon_radius = 0.1;      % Precondioner size (meters): elements of Z with R < precon_radius   
+tol = 1e-4;             % Convergence tolerance in iterative solver
+maxN_Z = 2000;          % Maximum size for which Z is computed
+% END  User configurable parameter
+
+disp(' '); disp('%%%%%%%%%%%%%%%%%%%%%%');
+
+%% Set electromagnetic data and object geometry
+EM_data = user_set_EM_data();
+OG_data = user_obj_geom_data(EM_data);      % EM_data is a necessary argument if discretization size depends on wavelength
+[rcx,rcy,rcz,N] = user_get_OG_basis_center(OG_data);     % Get center coordinates of basis functions
+view_var('Number of unknowns',N);
+
+%% Compute excitation vector (incident field)
+Ei = user_compute_Ei(OG_data, EM_data);
+
+%% Multilevel subdivision
+
+
+%% Fill Z matrix
+if N <= maxN_Z,
+   disp(' ');
+   disp('Computing uncompressed Z')
+   tic
+   Z = user_impedance(1:N, 1:N, OG_data,EM_data); 
+   toc
+   
+   % Copy of uncompressed Z for iterative solver
+   Z_uncomp = cell(1,1);
+   Z_uncomp{1} = struct('m',1:N,'n',1:N,'comp',0,'self',1,'Z', Z,'U',[],'V',[]);
+   
+   size_Z = whos('Z');
+   view_var('Size of uncompressed Z (MB)',size_Z.bytes/(1024*1024))
+end
+
+%% Compressed Z
+disp(' ');
+disp('Computing compressed Z')
+view_var('Finest level size',finest_level_size)
+view_var('ACA stopping error threshold',ACA_thres)
+
+tic
+[basis_func_boxes, L] = prepare_multilevel(rcx,rcy,rcz,N, finest_level_size);
+Z_comp = multilevel_compress(basis_func_boxes,0,0,0,0,0,0,0,L,ACA_thres,OG_data,EM_data);
+t_comp = toc;
+disp(sprintf('Elapsed time is %g seconds.',t_comp))
+
+size_Zcomp = whos('Z_comp');
+view_var('Size of compressed Z (MB)',size_Zcomp.bytes/(1024*1024))
+
+%% Compute preconditioner
+if precon_radius > 0,
+    disp(' ');
+    disp('Computing Preconditioner')
+    view_var('Preconditioner Radius',precon_radius)
+    tic
+    precon_M = sparse(N,N);
+    Rpc2 = precon_radius^2;
+    for ncol=1:N,
+        % R2 = |r - r'|.^2 squared distance between field and source centres
+        R2 = (rcx-rcx(ncol)).^2 + (rcy-rcy(ncol)).^2 + (rcz-rcz(ncol)).^2;
+        elem = find(R2 < Rpc2);
+        precon_M(elem,ncol) = user_impedance(elem, ncol, OG_data,EM_data);
+    end;
+    t_precon = toc;
+    disp(sprintf('Elapsed time is %g seconds.',t_precon))
+    size_M = whos('precon_M');
+    view_var('Size of preconditioner (MB)',size_M.bytes/(1024*1024))
+else
+    precon_M = [];
+    t_precon = 0;
+end
+
+%% Solve
+if N <= maxN_Z,
+    disp(' ');
+    disp('Solve uncompressed')
+    tic
+    Juncomp = gmres_Zcomp(Z_uncomp, Ei, tol, N, precon_M, EM_data);
+    toc
+    
+    disp(' ');
+    disp('Solve direct')
+    tic
+    Jdir = Z\Ei;
+    toc    
+    view_var('Relative error iterative vs. direct solution:',norm(Juncomp-Jdir)/norm(Jdir))
+end
+
+disp(' ');
+disp('Solve compressed')
+view_var('GMRES stopping error threshold',tol)
+tic
+[J,err,it] = gmres_Zcomp(Z_comp, Ei, tol, N, precon_M, EM_data);
+t_solve = toc;
+disp(sprintf('Elapsed time is %g seconds.',t_solve))
+
+if N <= maxN_Z,
+    view_var('Relative error compressed vs. uncompressed',norm(J-Juncomp)/norm(Juncomp))
+end
+
+t_total = t_comp + t_precon + t_solve;
+disp(sprintf('Total solver time = %dm %.1fs',floor(t_total/60),rem(t_total,60)))
+
+user_plot_obj_current(J,OG_data,EM_data);
+

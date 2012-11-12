@@ -1,0 +1,125 @@
+% Z_comp = multilevel_compress(basis_func_boxes,ix_s,iy_s,iz_s,ix_f,iy_f,iz_f,l,L,ACA_thres, OG_data,EM_data)
+% Compress Z submatrix with multilevel subdivision
+% Source and field boxes are subdivided. 
+% Far-field children are compressed and near field children are recursively subdivided
+%
+% Input arguments:
+% basis_func_boxes = Information about the location of basis functions in boxes at different levels
+%                    This is the return value of function compute_basis_func_boxes(rc,L)
+% ix_s      = x-index of source box at level l
+% iy_s      = y-index of source box at level l
+% iz_s      = z-index of source box at level l
+% ix_f      = x-index of field box at level l
+% iy_f      = y-index of field box at level l
+% iz_f      = z-index of field box at level l
+% l         = Current level
+% L         = Maximum level to end multilevel subdivion
+% ACA_thres = Relative error threshold to stop adding rows and columns in ACA iteration
+% OG_data   = struct containig data passed to user_impedance() function
+% EM_data   = struct containig data passed to user_impedance() function
+%
+% Output argument:
+% Z_comp = Cell array of compressed submatrices corresponding ONLY to the interactions computed by
+% this call to the function
+%
+% Juan M. Rius, AntennaLab, Universitat Politecnica de Catalunya (Spain), v1.0, August 2007
+
+% /***************************************************************************
+%  *   Copyright (C) 2007 by Juan M. Rius                                    *
+%  *   AntennaLab, Universitat Politecnica de Catalunya, rius@tsc.upc.edu    *
+%  *                                                                         *
+%  *   This program is free software; you can redistribute it and/or modify  *
+%  *   it under the terms of the GNU General Public License as published by  *
+%  *   the Free Software Foundation; either version 2 of the License, or     *
+%  *   (at your option) any later version.                                   *
+%  *                                                                         *
+%  *   This program is distributed in the hope that it will be useful,       *
+%  *   but WITHOUT ANY WARRANTY; without even the implied warranty of        *
+%  *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the         *
+%  *   GNU General Public License for more details.                          *
+%  *                                                                         *
+%  *   You should have received a copy of the GNU General Public License     *
+%  *   along with this program; if not, write to the                         *
+%  *   Free Software Foundation, Inc.,                                       *
+%  *   59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             *
+%  ***************************************************************************/
+
+function Z_comp = multilevel_compress(basis_func_boxes,ix_s,iy_s,iz_s,ix_f,iy_f,iz_f,l,L,ACA_thres,OG_data,EM_data)
+
+sym_source_field = EM_data.sym_source_field;
+Z_comp = {};
+
+% Subdivide source box and process children
+for xchs = [0 1],
+    for ychs = [0 1],
+        for zchs = [0 1],
+            ix_chs = ix_s*2 + xchs; % x-index of source child box at level l+1
+            iy_chs = iy_s*2 + ychs; % y-index of source child box at level l+1
+            iz_chs = iz_s*2 + zchs; % z-index of source child box at level l+1
+
+            % Find indices of basis functions in source child box
+            m = find(basis_func_boxes.x(:,l+1)==ix_chs & basis_func_boxes.y(:,l+1)==iy_chs & basis_func_boxes.z(:,l+1)==iz_chs);
+            if isempty(m), continue;
+            end
+
+            % Subdivide field box and process children
+            for xchf = [0 1],
+                for ychf = [0 1],
+                    for zchf = [0 1],
+                        ix_chf = ix_f*2 + xchf; % x-index of field child box at level l+1
+                        iy_chf = iy_f*2 + ychf; % y-index of field child box at level l+1
+                        iz_chf = iz_f*2 + zchf; % z-index of field child box at level l+1
+
+                        % Find indices of testing functions in field child box
+                        n = find(basis_func_boxes.x(:,l+1)==ix_chf & basis_func_boxes.y(:,l+1)==iy_chf & basis_func_boxes.z(:,l+1)==iz_chf);
+                        if isempty(n), continue;
+                        end
+
+                        % Here we have a pair of non-empty source and field boxes
+                        if abs(ix_chs-ix_chf) > 1 || abs(iy_chs-iy_chf) > 1 || abs(iz_chs-iz_chf) > 1, % Far-field boxes
+                            if sym_source_field 
+                                % Symmetric source-field field-source
+                                % interactions are only computed once.
+                                if ix_chs-ix_chf > 0 || ix_chs-ix_chf == 0 && iy_chs-iy_chf > 0 || ix_chs-ix_chf == 0 && iy_chs-iy_chf == 0 && iz_chs-iz_chf > 0,
+                                    [U,V] = ACA(ACA_thres, m,n, OG_data,EM_data);
+                                    Z_comp{length(Z_comp)+1} = struct('m',m,'n',n,'comp',1,'self',0,'Z',[] ,'U',U,'V',V);
+                                end
+                            else
+                                % We need to compute all because there is
+                                % not symmetric interactions
+                                [U,V] = ACA(ACA_thres, m,n, OG_data,EM_data);
+                                Z_comp{length(Z_comp)+1} = struct('m',m,'n',n,'comp',1,'self',0,'Z',[] ,'U',U,'V',V);
+                            end
+                        else % Near-field boxes
+                            self = 0;
+                            if l+1 == L,
+                                if sym_source_field
+                                    % Symmetric source-field field-source
+                                    % interactions are only computed once.
+                                    if ix_chs-ix_chf == 0 && iy_chs-iy_chf == 0 && iz_chs-iz_chf == 0
+                                        % Self-interactions
+                                        self = 1;
+                                        Z_comp{length(Z_comp)+1} = struct('m',m,'n',n,'comp',0,'self',self,'Z', user_impedance(m,n,OG_data,EM_data),'U',[],'V',[]);
+                                    end
+                                    if ix_chs-ix_chf > 0 || ix_chs-ix_chf == 0 && iy_chs-iy_chf > 0 || ix_chs-ix_chf == 0 && iy_chs-iy_chf == 0 && iz_chs-iz_chf > 0,
+                                        Z_comp{length(Z_comp)+1} = struct('m',m,'n',n,'comp',0,'self',self,'Z', user_impedance(m,n,OG_data,EM_data),'U',[],'V',[]);
+                                    end
+                                else
+                                    % We need to compute all because there are
+                                    % not symmetric interactions
+                                    if ix_chs-ix_chf == 0 && iy_chs-iy_chf == 0 && iz_chs-iz_chf == 0
+                                        % Self-interactions
+                                        self = 1;
+                                    end
+                                    Z_comp{length(Z_comp)+1} = struct('m',m,'n',n,'comp',0,'self',self,'Z', user_impedance(m,n,OG_data,EM_data),'U',[],'V',[]);
+                                end
+                            else
+                                Z_comp = [Z_comp multilevel_compress(basis_func_boxes,ix_chs,iy_chs,iz_chs,ix_chf,iy_chf,iz_chf,l+1,L,ACA_thres,OG_data,EM_data)];
+                            end
+                        end
+                    end
+                end
+            end
+        end
+    end
+end

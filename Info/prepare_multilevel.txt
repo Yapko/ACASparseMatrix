@@ -1,0 +1,62 @@
+% [basis_func_boxes, L] = prepare_multilevel(rcx,rcy,rcz,N, finest_level_size)
+% Compute indices of boxes at all levels for each basis function
+%
+% Input arguments:
+% rcx = x-coordinates of basis functions centers (vector)
+% rcy = y-coordinates of basis functions centers (vector)
+% rcz = z-coordinates of basis functions centers (vector)
+% N   = Number of basis functions (length of rcx, rcy, and rcz)
+% finest_level_size = size of finest level in multilevel subdivision
+%
+% Output arguments:
+% basis_func_boxes = Matrix with one column per level in multilevel subdivision
+%                    Columns contain the box index in which a basis function is located
+%                    Row index is the basis function index
+% L                = Number of levels in multilevel subdivision
+%
+% Juan M. Rius, AntennaLab, Universitat Politecnica de Catalunya (Spain), v1.0, August 2007
+
+% /***************************************************************************
+%  *   Copyright (C) 2007 by Juan M. Rius                                    *
+%  *   AntennaLab, Universitat Politecnica de Catalunya, rius@tsc.upc.edu    *
+%  *                                                                         *
+%  *   This program is free software; you can redistribute it and/or modify  *
+%  *   it under the terms of the GNU General Public License as published by  *
+%  *   the Free Software Foundation; either version 2 of the License, or     *
+%  *   (at your option) any later version.                                   *
+%  *                                                                         *
+%  *   This program is distributed in the hope that it will be useful,       *
+%  *   but WITHOUT ANY WARRANTY; without even the implied warranty of        *
+%  *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the         *
+%  *   GNU General Public License for more details.                          *
+%  *                                                                         *
+%  *   You should have received a copy of the GNU General Public License     *
+%  *   along with this program; if not, write to the                         *
+%  *   Free Software Foundation, Inc.,                                       *
+%  *   59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.             *
+%  ***************************************************************************/
+
+function [basis_func_boxes, L] = prepare_multilevel(rcx,rcy,rcz,N, finest_level_size)
+
+xmax = max(rcx); xmin = min(rcx); 
+ymax = max(rcy); ymin = min(rcy); 
+zmax = max(rcz); zmin = min(rcz); 
+
+Lx = ceil(log((xmax-xmin)/(finest_level_size))/log(2));
+Ly = ceil(log((ymax-ymin)/(finest_level_size))/log(2));
+Lz = ceil(log((zmax-zmin)/(finest_level_size))/log(2));
+L = max([Lx Ly Lz]);
+
+box_size_x = (xmax - xmin)*(1+1e-3);
+box_size_y = (ymax - ymin)*(1+1e-3);
+box_size_z = (zmax - zmin)*(1+1e-3);
+box_size = max([box_size_x box_size_y box_size_z]);
+
+basis_func_boxes = struct('x',zeros(N,L),'y',zeros(N,L),'z',zeros(N,L));
+
+for l=1:L,
+    box_size = box_size/2;
+    basis_func_boxes.x(:,l) = floor((rcx-xmin)/box_size);
+    basis_func_boxes.y(:,l) = floor((rcy-ymin)/box_size);
+    basis_func_boxes.z(:,l) = floor((rcz-zmin)/box_size);
+end
