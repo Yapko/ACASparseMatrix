@@ -17,6 +17,7 @@ namespace ACASparseMatrix
     /// </summary>
     public class ACAStruct
     {
+        #region Fields
         //to save rows indexes
         List<int> m;
         //to save columns indexes
@@ -37,6 +38,8 @@ namespace ACASparseMatrix
         int mMin, mMax;
         //min and max in n
         int nMin, nMax;
+        #endregion
+
         #region Constructors
         /// <summary>
         /// default ctor
@@ -97,18 +100,18 @@ namespace ACASparseMatrix
         /// <summary>
         /// property to return comp
         /// </summary>
-        int Comp
+        public int Comp
         {
             get
             {
                 return comp;
             }
-       public  }
+        }
 
         /// <summary>
         /// property to return self
         /// </summary>
-        int Self
+        public int Self
         {
             get
             {
@@ -146,12 +149,8 @@ namespace ACASparseMatrix
             {
                 return nMin;
             }
-        }
-        #endregion
-
-    }
-}
-
+        }     
+        
         public List<int> GetM
         {
             get
@@ -192,6 +191,5 @@ namespace ACASparseMatrix
             }
         }
         #endregion
-
     }
 }
