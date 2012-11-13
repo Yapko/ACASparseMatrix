@@ -18,16 +18,24 @@ namespace ACASparseMatrix
     public class ACAStruct
     {
         #region Fields
-        //to save rows indexes
+        /// <summary>
+        /// to save rows indexes
+        /// </summary>
         List<int> m;
         //to save columns indexes
         List<int> n;
-        //to save elements
+        /// <summary>
+        /// Matrix is represented either by Z or by U*V
+        /// </summary>
         DenseMatrix Z;
-        //
-        DenseVector U;
-        //
-        DenseVector V;
+        /// <summary>
+        /// Matrix is represented either by Z or by U*V
+        /// </summary>
+        DenseMatrix U;
+        /// <summary>
+        /// Matrix is represented either by Z or by U*V
+        /// </summary>
+        DenseMatrix V;
         
         //
         int comp;
@@ -49,10 +57,10 @@ namespace ACASparseMatrix
             m = new List<int>();
             n = new List<int>();
 
-            Z = new DenseMatrix(1,1);
+            Z = null;
 
-            U = new DenseVector(1);
-            V = new DenseVector(1);
+            U = null;
+            V = null;
 
             comp = self = 0;
 
@@ -75,8 +83,8 @@ namespace ACASparseMatrix
             List<int> M,
             List<int> N,
             DenseMatrix Z1,
-            DenseVector U1,
-            DenseVector V1,
+            DenseMatrix U1,
+            DenseMatrix V1,
             int Comp,
             int Self            
             )
@@ -98,7 +106,7 @@ namespace ACASparseMatrix
 
         #region Properties
         /// <summary>
-        /// property to return comp
+        /// 
         /// </summary>
         public int Comp
         {
@@ -109,7 +117,7 @@ namespace ACASparseMatrix
         }
 
         /// <summary>
-        /// property to return self
+        /// 
         /// </summary>
         public int Self
         {
@@ -175,7 +183,7 @@ namespace ACASparseMatrix
             }
         }
 
-        public Vector U_Vector
+        public Matrix U_Vector
         {
             get
             {
@@ -183,7 +191,7 @@ namespace ACASparseMatrix
             }
         }
 
-        public Vector V_Vector
+        public Matrix V_Vector
         {
             get
             {

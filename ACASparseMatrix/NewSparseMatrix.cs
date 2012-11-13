@@ -14,10 +14,11 @@ namespace ACASparseMatrix
     /// <summary>
     /// TODO: Update summary.
     /// </summary>
-    public class NewSparseMatrix:Matrix
+    public class NewSparseMatrix: Matrix
     {
         List<ACAStruct> compressed;
-        public NewSparseMatrix():base(1,1)
+
+        public NewSparseMatrix():base(0, 0)
         {
             compressed = new List<ACAStruct>();
         }
@@ -42,23 +43,14 @@ namespace ACASparseMatrix
             throw new NotImplementedException();
         }
 
-        public  ACAStruct this[int index]
+        private ACAStruct this[int index]
         {
             get
             {
                 return compressed[index];
             }
-
-            set
-            {
-                compressed[index] = value;
-            }
-       
-
-       
         }
-
-        public int Count
+        private int Count
         {
             get
             {
@@ -66,8 +58,32 @@ namespace ACASparseMatrix
             }
         }
 
-        public Vector Multiply(NewSparseMatrix Zcomp, Vector J, bool sym_source_field)
+        private Vector MultiplyByIndex(Matrix RightM, Vector LeftV, List<int> Index)
         {
+            Vector leftVector = new DenseVector(0);
+            foreach (int index in Index)
+            {
+                leftVector.Add(LeftV[index]);
+            }
+            leftVector = (Vector)RightM.Multiply(leftVector);
+            return leftVector;
+        }
+
+        private Vector AddByIndex(Vector LeftV, List<int> LeftVIndex, Vector RighV)
+        {
+            Vector resultV = new DenseVector(RighV.Count);
+            int count = 0;
+            foreach (int index in LeftVIndex)
+            {
+                resultV[index] += RighV[count];
+                count++;
+            }
+            return resultV;
+        }
+
+        public Vector Multiply(Vector J, bool sym_source_field)
+        {
+            NewSparseMatrix Zcomp = this;
             Vector y = new DenseVector(J.Count);
             int Nblocks = Zcomp.Count;
             for (int nb = 1; nb <= Nblocks; nb++)
@@ -77,18 +93,7 @@ namespace ACASparseMatrix
                 if (Zcomp[nb].Self == 1) // Self-interactions
                 {
                     //y(m) = y(m) + Zcomp[nb].Z * J(n);
-                    Vector tempV = new DenseVector(n.Count);
-                    foreach (int index in n)
-                    {
-                        tempV.Add(J[index]);
-                    }
-                    tempV = (Vector)Zcomp[nb].Z_Matrix.Multiply(tempV);
-                    int tempCount = 0;
-                    foreach (int index in m)
-                    {
-                        y[index] += tempV[tempCount];
-                        tempCount++;
-                    }
+                    AddByIndex(y, m, MultiplyByIndex(Zcomp[nb].Z_Matrix, J, n));
                 }
                 else //Non-self-interactions
                 {
@@ -97,115 +102,38 @@ namespace ACASparseMatrix
                         if (Zcomp[nb].Comp == 0)
                         {
                             //y(m) = y(m) + Zcomp[nb].Z_Matrix * J(n);
-                            Vector tempV = new DenseVector(n.Count);
-                            foreach (int index in n)
-                            {
-                                tempV.Add(J[index]);
-                            }
-                            tempV = (Vector)Zcomp[nb].Z_Matrix.Multiply(tempV);
-                            int tempCount = 0;
-                            foreach (int index in m)
-                            {
-                                y[index] += tempV[tempCount];
-                                tempCount++;
-                            }
+                            AddByIndex(y, m, MultiplyByIndex(Zcomp[nb].Z_Matrix, J, n));
                             //y(n) = y(n) + Zcomp[nb].Z_Matrix.Transpose() * J(m);
-                            tempV.Clear();
-                            tempCount = 0;
-                            tempV = new DenseVector(m.Count);
-                            foreach (int index in m)
-                            {
-                                tempV.Add(J[index]);
-                            }
-                            tempV = (Vector)Zcomp[nb].Z_Matrix.Transpose().Multiply(tempV);
-                            tempCount = 0;
-                            foreach (int index in n)
-                            {
-                                y[index] += tempV[tempCount];
-                                tempCount++;
-                            }
+                            //if comlex use complex conjugate transpose of Z_Matrix elements
+                            AddByIndex(y, n, MultiplyByIndex(Zcomp[nb].Z_Matrix, J, m));
                         }
                         else
                         {
+                            
                             //y(m) = y(m) + Zcomp[nb].U_Vector * (Zcomp[nb].V_Vector * J(n));
-                            Vector tempV = new DenseVector(n.Count);
-                            foreach (int index in n)
-                            {
-                                tempV.Add(J[index]);
-                            }
-                            tempV = (Vector)Zcomp[nb].U_Vector.Multiply(Zcomp[nb].V_Vector.DotProduct(tempV));
-                            int tempCount = 0;
-                            foreach (int index in m)
-                            {
-                                y[index] += tempV[tempCount];
-                                tempCount++;
-                            }
+                            AddByIndex(y, m, (Vector)Zcomp[nb].U_Vector.Multiply(MultiplyByIndex(Zcomp[nb].V_Vector, J, n)));
                             //y(n) = y(n) + Zcomp[nb].V_Vector.T * (Zcomp[nb].U_Vector.T * J(m));
-                            Matrix tempMLeft = new DenseMatrix(1, Zcomp[nb].V_Vector.Count);
-                            for (int i = 0; i < Zcomp[nb].V_Vector.Count; i++)
-                            {
-                                tempMLeft[0, i] = Zcomp[nb].V_Vector[i];
-                            }
-
-                            Matrix tempMRight = new DenseMatrix(m.Count, Zcomp[nb].U_Vector.Count);
-                            for (int i = 0; i < m.Count; i++)
-                            {
-                                for (int j = 0; j < Zcomp[nb].U_Vector.Count; j++)
-                                {
-                                    tempMRight[i, j] = Zcomp[nb].U_Vector[i] * J[m[j]];
-                                }
-                            }
-
-                            double tempS = 0;
-                            for (int i = 0; i < Zcomp[nb].U_Vector.Count; i++)
-                            {
-                                for (int j = 0; j < Zcomp[nb].V_Vector.Count; j++)
-                                {
-                                    tempS += tempMLeft[0, i] * tempMRight[j, i];
-                                }
-                                y[n[i]] = tempS;
-                                tempS = 0;
-                            }
-                        }
+                            //if comlex use complex conjugate transpose of V elements and U elements.
+                            AddByIndex(y, n, (Vector)Zcomp[nb].V_Vector.Multiply(MultiplyByIndex(Zcomp[nb].U_Vector, J, m)));
+                         }
                     }
                     else //All the interactions have been computed
                     {
                         if (Zcomp[nb].Comp == 0)
                         {
                             //y(m) = y(m) + Zcomp[nb].Z_Matrix * J(n);
-                            Vector tempV = new DenseVector(n.Count);
-                            foreach (int index in n)
-                            {
-                                tempV.Add(J[index]);
-                            }
-                            tempV = (Vector)Zcomp[nb].Z_Matrix.Multiply(tempV);
-                            int tempCount = 0;
-                            foreach (int index in m)
-                            {
-                                y[index] += tempV[tempCount];
-                                tempCount++;
-                            }
+                            AddByIndex(y, m, MultiplyByIndex(Zcomp[nb].Z_Matrix, J, n));
                         }
                         else
                         {
                             //y(m) = y(m) + Zcomp[nb].U_Vector * (Zcomp[nb].V_Vector * J(n));
-                            Vector tempV = new DenseVector(n.Count);
-                            foreach (int index in n)
-                            {
-                                tempV.Add(J[index]);
-                            }
-                            tempV = (Vector)Zcomp[nb].U_Vector.Multiply(Zcomp[nb].V_Vector.DotProduct(tempV));
-                            int tempCount = 0;
-                            foreach (int index in m)
-                            {
-                                y[index] += tempV[tempCount];
-                                tempCount++;
-                            }
+                            AddByIndex(y, m, (Vector)Zcomp[nb].U_Vector.Multiply(MultiplyByIndex(Zcomp[nb].V_Vector, J, n)));
                         }
                     }
                 }
             }
             return y;
         }
+        
     }
 }

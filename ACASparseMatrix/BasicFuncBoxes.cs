@@ -13,28 +13,39 @@ namespace ACASparseMatrix
     using MathNet.Numerics.LinearAlgebra.Double;
 
     /// <summary>
-    /// TODO: Update summary.
+    /// Basic func boxes stores number of box that point belongs to at each level
+    /// e.g. 
+    /// x = [ 0 2    -- point 1
+    ///       1 4    -- point 2
+    ///       1 5    -- point 3
+    ///       ]
+    /// means that point 3 at first level belongs to box #1. At second level to box #5
+    /// The same for y,z
+    /// 
     /// </summary>
     public class BasicFuncBoxes
     {
+        /// <summary>
+        /// see class description
+        /// </summary>
         DenseMatrix x;
         DenseMatrix y;
         DenseMatrix z;
 
         /// <summary>
-        /// number of rows of each matrix
+        /// number of rows of each matrix, point count
         /// </summary>
         int n;
         /// <summary>
-        /// number of cols of each matrix
+        /// number of cols of each matrix, tree height
         /// </summary>
         int l;
 
         /// <summary>
         /// ctor with params
         /// </summary>
-        /// <param name="N">number of rows of each matrix</param>
-        /// <param name="L">number of cols of each matrix</param>
+        /// <param name="N">number of rows of each matrix, point count</param>
+        /// <param name="L">number of cols of each matrix, it is height of the tree</param>
         public BasicFuncBoxes(int N,int L)
         {
             n = N;

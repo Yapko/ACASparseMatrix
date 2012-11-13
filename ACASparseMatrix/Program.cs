@@ -37,32 +37,34 @@ namespace ACASparseMatrix
 
             BasicFuncBoxes basicFuncBoxes = new BasicFuncBoxes(N, L);
 
-            box_size = box_size / 2;
-
-            Vector tempVx = new DenseVector(rcx.Count);
-            for (int i = 0; i < rcx.Count; i++)
-            {
-                tempVx[i] = Math.Floor((rcx[i] - xmin) / box_size);
-            }
-
-            Vector tempVy = new DenseVector(rcy.Count);
-            for (int i = 0; i < rcy.Count; i++)
-            {
-                tempVy[i] = Math.Floor((rcy[i] - ymin) / box_size);
-            }
-
-            Vector tempVz = new DenseVector(rcz.Count);
-            for (int i = 0; i < rcz.Count; i++)
-            {
-                tempVz[i] = Math.Floor((rcz[i] - zmin) / box_size);
-            }
-
             for (int i = 0; i < L; i++)
             {
+                box_size = box_size / 2;
+
+                Vector tempVx = new DenseVector(rcx.Count);
+                for (int j = 0; j < rcx.Count; j++)
+                {
+                    tempVx[j] = Math.Floor((rcx[j] - xmin) / box_size);
+                }
+
+                Vector tempVy = new DenseVector(rcy.Count);
+                for (int j = 0; j < rcy.Count; j++)
+                {
+                    tempVy[j] = Math.Floor((rcy[j] - ymin) / box_size);
+                }
+
+                Vector tempVz = new DenseVector(rcz.Count);
+                for (int j = 0; j < rcz.Count; j++)
+                {
+                    tempVz[j] = Math.Floor((rcz[j] - zmin) / box_size);
+                }
+
+            
                 basicFuncBoxes.X.SetColumn(i, tempVx);
                 basicFuncBoxes.Y.SetColumn(i, tempVy);
                 basicFuncBoxes.Z.SetColumn(i, tempVz);
             }
+
             return basicFuncBoxes;
         }
     }
