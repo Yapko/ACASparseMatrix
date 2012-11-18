@@ -79,28 +79,32 @@ namespace ACASparseMatrix
             //if Z is a vector, there is nothing to compress
             if (M == 1 || N == 1)
             {
-                U = userImpedance(m, n);
+                U = UserImpedance(m, n);
                 V = new DenseMatrix(1, 1);
                 V[0, 0] = 1.0;
                 return;
             }
 
             //Indices of columns picked up from Z
-            Vector J = new DenseVector(N);
+            //Vector J = new DenseVector(N);
+            List<int> J = new List<int>(N);
             //Indices of rows picked up from Z
-            Vector I = new DenseVector(M);
+            //Vector I = new DenseVector(M);
+            List<int> I = new List<int>(M);
             //Row indices to search for maximum in R 
-            Vector i = new DenseVector(M);
+            //Vector i = new DenseVector(M);
+            List<int> i = new List<int>(M);
             //Column indices to search for maximum in R
-            Vector j = new DenseVector(N);
+            //Vector j = new DenseVector(N);
+            List<int> j = new List<int>(N);
 
-            for (int k = 2,t = 0; k <= M; k++)
+            for (int k = 1,t = 0; k < M; k++)
             {
                 i[t] = k;
                 t++;
             }
 
-            for (int k = 1, t = 0; k <= N; k++)
+            for (int k = 0, t = 0; k < N; k++)
             {
                 i[t] = k;
                 t++;
@@ -109,7 +113,149 @@ namespace ACASparseMatrix
             //Initialization
 
             //Initialize the 1st row index I(1) = 1
-            I[0] = 1;
+            I[0] = 0;
+
+            //Initialize the 1st row of the approximate error matrix
+            List<int> m0 = new List<int>();
+            m0.Add(m[I[0]]);
+            Matrix Rik = UserImpedance(m0, n);
+
+            //Find the 1st column index J(0)
+            double max = -1.0;
+            int col = 0;
+
+            foreach (int ind in j)
+            {
+                if (Math.Abs(Rik[0, ind]) > max)
+                {
+                    max = Math.Abs(Rik[0, ind]);
+                    col = ind;
+                }
+            }
+
+            J[0] = j[col];
+            j.Remove(J[0]);
+
+            //First row of V
+            V.SetRow(0,Rik.Row(0).Divide(Rik[0, J[0]]));
+
+            //Initialize the 1st column of the approximate error matrix
+            List<int> n0 = new List<int>();
+            n0.Add(n[J[0]]);
+            Matrix Rjk = UserImpedance(m, n0);
+
+            //First column of U
+            U.SetColumn(0, Rjk.Column(0));
+
+            // Norm of (approximate) Z, to test error
+            double d1 = U.L2Norm();
+            double d2 = V.L2Norm();
+            double normZ = d1 * d1 * d2 * d2;
+
+            //Find 2nd row index I(2)
+            int row = 0;
+            max = -1.0;
+
+            foreach (int ind in i)
+            {
+                if (Math.Abs(Rjk[ind, 0]) > max)
+                {
+                    max = Math.Abs(Rjk[ind, 0]);
+                    row = ind;
+                }
+            }
+
+            I[1] = i[row];
+            i.Remove(I[1]);
+
+            //Iteration
+            for (int k = 1; k < Math.Min(M, N); k++)
+            {
+                //Update (Ik)th row of the approximate error matrix:
+                List<int> t1 = new List<int>();
+                t1.Add(m[I[k]]);
+                Rik = (Matrix)(UserImpedance(t1, n) - U.SubMatrix(I[k], U.ColumnCount, 0, 1).Multiply(V));
+
+                //Find kth column index Jk
+                max = -1.0;
+                col = 0;
+
+                foreach (int ind in j)
+                {
+                    if (Math.Abs(Rik[0, ind]) > max)
+                    {
+                        max = Math.Abs(Rik[0, ind]);
+                        col = ind;
+                    }
+                }
+
+                J[k] = j[col];
+                j.Remove(J[k]);
+
+                //Terminate if R(I(k),J(k)) == 0
+                if (Rik[0, J[k]] == 0)
+                {
+                    break;
+                }
+
+                //Set k-th row of V equal to normalized error
+                Matrix Vk = (Matrix)Rik.Divide(Rik[0,J[k]]);
+
+                //Update (Jk)th column of the approximate error matrix
+                List<int> n1 = new List<int>();
+                n1.Add(J[k]);
+                Rjk = (Matrix)(UserImpedance(m, n1) - U.Multiply(V.SubMatrix(0,1,J[k],V.RowCount)));
+
+                // Set k-th column of U equal to updated error
+                Matrix Uk = Rjk;
+
+                //Norm of approximate Z
+                Matrix s = (Matrix)( U.Transpose().Multiply(Uk) ).Multiply( ( Vk.Multiply( V.Transpose() ) ).Transpose() );
+                double sum = 0;
+
+                for (int i1 = 0; i1 < s.RowCount; i1++)
+                {
+                    for (int j1 = 0; j1 < s.ColumnCount; j1++)
+                    {
+                        sum += s[i1, j1];
+                    }
+                }
+
+                d1 = Uk.L2Norm();
+                d2 = Vk.L2Norm();
+
+                normZ += 2 * sum + d1 * d1 * d2 * d2;
+
+                //Update U and V
+                U.InsertColumn(U.ColumnCount - 1, Uk.Column(0));
+                V.InsertRow(V.RowCount - 1, Vk.Row(0));
+
+                if (d1 * d2 <= acaThres * Math.Sqrt(normZ))
+                {
+                    break;
+                }
+                                
+                if (k == Math.Min(N, M) - 1)
+                {
+                    break;
+                }
+
+                max = -1;
+                row = 0;
+
+                foreach (int ind in i)
+                {
+                    if (Math.Abs(Rjk[0,ind]) > max)
+                    {
+                        max = Math.Abs(Rjk[0, ind]);
+                        row = ind;
+                    }
+                }
+
+                I[k + 1] = i[row];
+                //i = removeIndex(i,I[k+1]);
+                i.Remove(I[k + 1]);
+            }
         }
 
         /// <summary>
@@ -118,7 +264,7 @@ namespace ACASparseMatrix
         /// <param name="m">Rows indexes of submatrix</param>
         /// <param name="n">Cols indexes of submatrix</param>
         /// <returns>Submatrix</returns>
-        public static Matrix userImpedance(List<int> m, List<int> n)
+        public static Matrix UserImpedance(List<int> m, List<int> n)
         {
             int M = m.Count;
             int N = n.Count;
