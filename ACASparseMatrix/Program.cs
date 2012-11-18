@@ -7,6 +7,10 @@ namespace ACASparseMatrix
 {
     class Program
     {
+        public static void f(Vector v)
+        {
+            v[0] = 100500;
+        }
         static void Main(string[] args)
         {
             BasicFuncBoxes b = new BasicFuncBoxes(10, 10);
@@ -16,7 +20,9 @@ namespace ACASparseMatrix
                 v[i] = -1 + i;
             }
 
-            b.X.SetColumn(0, v);
+            //b.X.SetColumn(0, v);
+            f(v);
+
         }
     }
 }
