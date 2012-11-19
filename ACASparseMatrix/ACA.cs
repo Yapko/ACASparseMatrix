@@ -98,7 +98,7 @@ namespace ACASparseMatrix
             //Vector j = new DenseVector(N);
             List<int> j = new List<int>(N);
 
-            for (int k = 1,t = 0; k < M; k++)
+            for (int k = 1, t = 0; k < M; k++)
             {
                 i[t] = k;
                 t++;
@@ -137,7 +137,7 @@ namespace ACASparseMatrix
             j.Remove(J[0]);
 
             //First row of V
-            V.SetRow(0,Rik.Row(0).Divide(Rik[0, J[0]]));
+            V.SetRow(0, Rik.Row(0).Divide(Rik[0, J[0]]));
 
             //Initialize the 1st column of the approximate error matrix
             List<int> n0 = new List<int>();
@@ -199,18 +199,18 @@ namespace ACASparseMatrix
                 }
 
                 //Set k-th row of V equal to normalized error
-                Matrix Vk = (Matrix)Rik.Divide(Rik[0,J[k]]);
+                Matrix Vk = (Matrix)Rik.Divide(Rik[0, J[k]]);
 
                 //Update (Jk)th column of the approximate error matrix
                 List<int> n1 = new List<int>();
                 n1.Add(J[k]);
-                Rjk = (Matrix)(UserImpedance(m, n1) - U.Multiply(V.SubMatrix(0,1,J[k],V.RowCount)));
+                Rjk = (Matrix)(UserImpedance(m, n1) - U.Multiply(V.SubMatrix(0, 1, J[k], V.RowCount)));
 
                 // Set k-th column of U equal to updated error
                 Matrix Uk = Rjk;
 
                 //Norm of approximate Z
-                Matrix s = (Matrix)( U.Transpose().Multiply(Uk) ).Multiply( ( Vk.Multiply( V.Transpose() ) ).Transpose() );
+                Matrix s = (Matrix)(U.Transpose().Multiply(Uk)).Multiply((Vk.Multiply(V.Transpose())).Transpose());
                 double sum = 0;
 
                 for (int i1 = 0; i1 < s.RowCount; i1++)
@@ -234,7 +234,7 @@ namespace ACASparseMatrix
                 {
                     break;
                 }
-                                
+
                 if (k == Math.Min(N, M) - 1)
                 {
                     break;
@@ -245,7 +245,7 @@ namespace ACASparseMatrix
 
                 foreach (int ind in i)
                 {
-                    if (Math.Abs(Rjk[0,ind]) > max)
+                    if (Math.Abs(Rjk[0, ind]) > max)
                     {
                         max = Math.Abs(Rjk[0, ind]);
                         row = ind;
@@ -275,12 +275,57 @@ namespace ACASparseMatrix
             {
                 for (int j = 1; j <= M; j++)
                 {
-                    Z[i,j] = 1.0/(Math.Abs(m[j] - n[i] + 0.0001));
+                    Z[i, j] = 1.0 / (Math.Abs(m[j] - n[i] + 0.0001));
                 }
             }
 
             return Z;
         }
+
+        #region MultilevelCompres
+        public static NewSparseMatrix MultilevelCompres(BasicFuncBoxes basicFuncBoxes, double ix_s, double iy_s, double iz_s, double ix_f, double iy_f, double iz_f, int l, double L, double ACA_thres)
+        {
+
+            NewSparseMatrix Z_comp = new NewSparseMatrix();
+
+            for (double xchs = 0; xchs <= 1; xchs++)
+            {
+                for (double ychs = 0; ychs <= 1; ychs++)
+                {
+                    for (double zchs = 0; zchs <= 1; zchs++)
+                    {
+                        // x-index of source child box at level l+1              
+                        double ix_chs = ix_s * 2 + xchs;
+                        // y-index of source child box at level l+1                        
+                        double iy_chs = iy_s * 2 + ychs;
+                        // z-index of source child box at level l+1
+                        double iz_chs = iz_s * 2 + zchs;
+
+                        //Find indices of basis functions in source child box
+                        List<int> n = new List<int>(3);
+                        for (int i = 0; i < basicFuncBoxes.X.RowCount; i++)
+                        {
+                            if(basicFuncBoxes.X[i, l + 1] == ix_chs && basicFuncBoxes.Y[i, l + 1] == iy_chs && basicFuncBoxes.Z[i, l + 1] == iz_chs)
+                            {
+                                n.Add(i);
+                            }
+                        }
+                        if (n.Count == 0)
+                        {
+                            continue;
+                        }
+
+                        //Here we have a pair of non-empty source and field boxes
+                       // if (Math.abs(ix_chs-ix_chf) > 1 || abs(iy_chs-iy_chf) > 1 || abs(iz_chs-iz_chf) > 1, % Far-field boxes
+                          
+            
+                    }
+                }
+            }
+
+            return new NewSparseMatrix();
+        }
+        #endregion
 
     }
 }
