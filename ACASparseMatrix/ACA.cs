@@ -57,11 +57,6 @@ namespace ACASparseMatrix
             return basicFuncBoxes;
         }
 
-        public static NewSparseMatrix multilevel_compress()
-        {
-            return new NewSparseMatrix();
-        }
-
         /// <summary>
         /// Adaptive Cross Approximation (ACA) matrix compression
         /// the result is stored in U and V matrices like U*V
@@ -283,9 +278,10 @@ namespace ACASparseMatrix
         }
 
         #region MultilevelCompres
+                                  //multilevel_compress(basis_func_boxes,ix_s,iy_s,iz_s,ix_f,iy_f,iz_f,l,L,ACA_thres,OG_data,EM_data)
         public static NewSparseMatrix MultilevelCompres(BasicFuncBoxes basicFuncBoxes, double ix_s, double iy_s, double iz_s, double ix_f, double iy_f, double iz_f, int l, double L, double ACA_thres)
         {
-
+            bool sym_source_field = false;
             NewSparseMatrix Z_comp = new NewSparseMatrix();
 
             for (double xchs = 0; xchs <= 1; xchs++)
@@ -302,28 +298,130 @@ namespace ACASparseMatrix
                         double iz_chs = iz_s * 2 + zchs;
 
                         //Find indices of basis functions in source child box
-                        List<int> n = new List<int>(3);
+                        List<int> m = new List<int>();
                         for (int i = 0; i < basicFuncBoxes.X.RowCount; i++)
                         {
-                            if(basicFuncBoxes.X[i, l + 1] == ix_chs && basicFuncBoxes.Y[i, l + 1] == iy_chs && basicFuncBoxes.Z[i, l + 1] == iz_chs)
+                            if (basicFuncBoxes.X[i, l + 1] == ix_chs && basicFuncBoxes.Y[i, l + 1] == iy_chs && basicFuncBoxes.Z[i, l + 1] == iz_chs)
                             {
-                                n.Add(i);
+                                m.Add(i);
                             }
                         }
-                        if (n.Count == 0)
+                        if (m.Count == 0)
                         {
                             continue;
                         }
 
-                        //Here we have a pair of non-empty source and field boxes
-                       // if (Math.abs(ix_chs-ix_chf) > 1 || abs(iy_chs-iy_chf) > 1 || abs(iz_chs-iz_chf) > 1, % Far-field boxes
-                          
-            
+                        //Subdivide field box and process children
+                        for (double xchf = 0; xchf <= 1; xchf++)
+                        {
+                            for (double ychf = 0; ychf <= 1; ychf++)
+                            {
+                                for (double zchf = 0; zchf <= 1; zchf++)
+                                {
+                                    //x-index of field child box at level l+1
+                                    double ix_chf = ix_f * 2 + xchf;
+                                    // y-index of field child box at level l+1
+                                    double iy_chf = iy_f * 2 + ychf;
+                                    // z-index of field child box at level l+1
+                                    double iz_chf = iz_f * 2 + zchf;
+
+                                    //Find indices of testing functions in field child box
+                                    List<int> n = new List<int>();
+                                    for (int i = 0; i < basicFuncBoxes.X.RowCount; i++)
+                                    {
+                                        if (basicFuncBoxes.X[i, l + 1] == ix_chf && basicFuncBoxes.Y[i, l + 1] == iy_chf && basicFuncBoxes.Z[i, l + 1] == iz_chf)
+                                        {
+                                            n.Add(i);
+                                        }
+                                    }
+                                    if (n.Count == 0)
+                                    {
+                                        continue;
+                                    }
+
+                                    // Here we have a pair of non-empty source and field boxes
+                                    if (Math.Abs(ix_chs - ix_chf) > 1 || Math.Abs(iy_chs - iy_chf) > 1 || Math.Abs(iz_chs - iz_chf) > 1)
+                                    {// Far-field boxes
+                                        if (sym_source_field == true)
+                                        {
+                                            // Symmetric source-field field-source
+                                            // interactions are only computed once.
+                                            if (ix_chs - ix_chf > 0 || ix_chs - ix_chf == 0 && iy_chs - iy_chf > 0 || ix_chs - ix_chf == 0 && iy_chs - iy_chf == 0 && iz_chs - iz_chf > 0)
+                                            {
+                                                //[U,V] = ACA(ACA_thres, m,n, OG_data,EM_data);
+                                                DenseMatrix U = new DenseMatrix(1, 1);
+                                                DenseMatrix V = new DenseMatrix(1, 1);
+                                                Aca(ACA_thres, m, n, U, V);
+                                                //Z_comp{length(Z_comp)+1} = struct('m',m,'n',n,'comp',1,'self',0,'Z',[] ,'U',U,'V',V);
+                                                Z_comp.Add(new ACAStruct(m,n,new DenseMatrix(1,1),U,V,1,0));
+                                            }
+                                        }
+                                        else
+                                        {
+                                            // We need to compute all because there is
+                                            // not symmetric interactions
+                                            DenseMatrix U = new DenseMatrix(1, 1);
+                                            DenseMatrix V = new DenseMatrix(1, 1);
+                                            //[U,V] = ACA(ACA_thres, m,n, OG_data,EM_data);
+                                            Aca(ACA_thres, m, n, U, V);
+                                            //Z_comp{length(Z_comp)+1} = struct('m',m,'n',n,'comp',1,'self',0,'Z',[] ,'U',U,'V',V);
+                                            Z_comp.Add(new ACAStruct(m, n, new DenseMatrix(1, 1), U, V, 1, 0));
+                                        }
+                                    }
+                                    else // Near-field boxes
+                                    {
+                                         double self = 0;
+                                         if (l + 1 == L)
+                                         {
+                                             if (sym_source_field == true)
+                                             {
+                                                 // Symmetric source-field field-source
+                                                 // interactions are only computed once.
+                                                 if (ix_chs - ix_chf == 0 && iy_chs - iy_chf == 0 && iz_chs - iz_chf == 0)
+                                                 {
+                                                     // Self-interactions
+                                                     self = 1;
+                                                     // Z_comp{length(Z_comp)+1} = struct('m',m,'n',n,'comp',0,'self',self,'Z', user_impedance(m,n,OG_data,EM_data),'U',[],'V',[]);
+                                                     Z_comp.Add(new ACAStruct(m, n, UserImpedance(m, n), new DenseMatrix(1, 1), new DenseMatrix(1, 1), 0, (int)self));
+                                                 }
+                                                 if (ix_chs - ix_chf > 0 || ix_chs - ix_chf == 0 && iy_chs - iy_chf > 0 || ix_chs - ix_chf == 0 && iy_chs - iy_chf == 0 && iz_chs - iz_chf > 0)
+                                                 {
+                                                     //Z_comp{length(Z_comp)+1} = struct('m',m,'n',n,'comp',0,'self',self,'Z', user_impedance(m,n,OG_data,EM_data),'U',[],'V',[]);
+                                                     Z_comp.Add(new ACAStruct(m, n, UserImpedance(m, n), new DenseMatrix(1, 1), new DenseMatrix(1, 1), 0, (int)self));
+                                                 }
+
+                                             }
+                                             else
+                                             {
+                                                 // We need to compute all because there are
+                                                 // not symmetric interactions
+                                                 if (ix_chs - ix_chf == 0 && iy_chs - iy_chf == 0 && iz_chs - iz_chf == 0)
+                                                 {
+                                                     // Self-interactions
+                                                     self = 1;
+                                                 }
+                                                 //Z_comp{length(Z_comp)+1} = struct('m',m,'n',n,'comp',0,'self',self,'Z', user_impedance(m,n,OG_data,EM_data),'U',[],'V',[]);
+                                                 Z_comp.Add(new ACAStruct(m, n, UserImpedance(m, n), new DenseMatrix(1, 1), new DenseMatrix(1, 1), 0, (int)self));
+                                             }
+
+                                         }
+                                         else
+                                         {
+                                             //Z_comp = [Z_comp multilevel_compress(basis_func_boxes,ix_chs,iy_chs,iz_chs,ix_chf,iy_chf,iz_chf,l+1,L,ACA_thres,OG_data,EM_data)];
+                                                              //multilevel_compress(basis_func_boxes,ix_s,iy_s,iz_s,ix_f,iy_f,iz_f,l,L,ACA_thres,OG_data,EM_data)
+                                             Z_comp = MultilevelCompres(basicFuncBoxes,ix_chs,iy_chs,iz_chs,ix_chf,iy_chf,iz_chf,l+1,L,ACA_thres);
+                                            
+                                         }
+                                    }
+                                
+                                }
+                            }
+                        }
                     }
                 }
             }
 
-            return new NewSparseMatrix();
+            return Z_comp;
         }
         #endregion
 

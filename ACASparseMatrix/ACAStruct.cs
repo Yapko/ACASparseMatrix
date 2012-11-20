@@ -27,15 +27,15 @@ namespace ACASparseMatrix
         /// <summary>
         /// Matrix is represented either by Z or by U*V
         /// </summary>
-        DenseMatrix Z;
+        Matrix Z;
         /// <summary>
         /// Matrix is represented either by Z or by U*V
         /// </summary>
-        DenseMatrix U;
+        Matrix U;
         /// <summary>
         /// Matrix is represented either by Z or by U*V
         /// </summary>
-        DenseMatrix V;
+        Matrix V;
         
         //
         int comp;
@@ -82,9 +82,9 @@ namespace ACASparseMatrix
         public ACAStruct(
             List<int> M,
             List<int> N,
-            DenseMatrix Z1,
-            DenseMatrix U1,
-            DenseMatrix V1,
+            Matrix Z1,
+            Matrix U1,
+            Matrix V1,
             int Comp,
             int Self            
             )

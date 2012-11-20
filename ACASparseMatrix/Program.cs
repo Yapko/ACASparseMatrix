@@ -21,6 +21,7 @@ namespace ACASparseMatrix
             }
 
             //b.X.SetColumn(0, v);
+           
             f(v);
 
         }

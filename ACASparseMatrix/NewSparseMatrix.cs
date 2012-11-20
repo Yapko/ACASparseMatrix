@@ -58,6 +58,14 @@ namespace ACASparseMatrix
             }
         }
 
+        /// <summary>
+        /// adds new struct to matrix
+        /// </summary>
+        /// <param name="z">new struct</param>
+        public void Add(ACAStruct z)
+        {
+            compressed.Add(z);
+        }
         private Vector MultiplyByIndex(Matrix RightM, Vector LeftV, List<int> Index)
         {
             Vector leftVector = new DenseVector(0);
