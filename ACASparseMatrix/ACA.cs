@@ -8,7 +8,7 @@ namespace ACASparseMatrix
 {
     class ACA
     {
-        public static BasicFuncBoxes prepare_multilevel(Vector rcx, Vector rcy, Vector rcz, int N, double finest_level_size)
+        public static BasicFuncBoxes PrepareMultilevel(Vector rcx, Vector rcy, Vector rcz, int N, double finest_level_size)
         {
             double xmax = rcx.Max(); double xmin = rcx.Min();
             double ymax = rcy.Max(); double ymin = rcy.Min();
@@ -66,43 +66,49 @@ namespace ACASparseMatrix
         /// <param name="n">Column indices of Z submatrix to compress</param>
         /// <param name="U">to store result</param>
         /// <param name="V">to store result</param>
-        public static void Aca(double acaThres, List<int> m, List<int> n, Matrix U, Matrix V)
+        public static Tuple<Matrix,Matrix> Aca(double acaThres, List<int> m, List<int> n, Matrix U, Matrix V)
         {
             int M = m.Count;
             int N = n.Count;
-
+            int Min = Math.Min(M, N);
+            U = new DenseMatrix(Min, Min);
+            V = new DenseMatrix(Min, Min);
             //if Z is a vector, there is nothing to compress
             if (M == 1 || N == 1)
             {
                 U = UserImpedance(m, n);
                 V = new DenseMatrix(1, 1);
                 V[0, 0] = 1.0;
-                return;
+                return new Tuple<Matrix,Matrix>(U,V);
             }
 
             //Indices of columns picked up from Z
             //Vector J = new DenseVector(N);
-            List<int> J = new List<int>(N);
+            //List<int> J = new List<int>(N);
+
+            List<int> J = new List<int>(new int [N]);      
+            //int[] J = new int[N];
             //Indices of rows picked up from Z
             //Vector I = new DenseVector(M);
-            List<int> I = new List<int>(M);
+            List<int> I = new List<int>(new int [M]);
+            //int[] I = new int[M];
             //Row indices to search for maximum in R 
             //Vector i = new DenseVector(M);
-            List<int> i = new List<int>(M);
+            List<int> i = new List<int>();
+            //int[] i = new int[M];
             //Column indices to search for maximum in R
             //Vector j = new DenseVector(N);
-            List<int> j = new List<int>(N);
+            List<int> j = new List<int>();
+            //int[] j = new int[N];
 
-            for (int k = 1, t = 0; k < M; k++)
+            for (int k = 1; k < M; k++)
             {
-                i[t] = k;
-                t++;
+                i.Add(k);
             }
 
-            for (int k = 0, t = 0; k < N; k++)
+            for (int k = 0; k < N; k++)
             {
-                i[t] = k;
-                t++;
+                j.Add(k);
             }
 
             //Initialization
@@ -128,18 +134,21 @@ namespace ACASparseMatrix
                 }
             }
 
-            J[0] = j[col];
+            //J[0] = j[col];
+            J[0] = col;
             j.Remove(J[0]);
 
             //First row of V
+            V = new DenseMatrix(1, Rik.ColumnCount);
             V.SetRow(0, Rik.Row(0).Divide(Rik[0, J[0]]));
-
+            
             //Initialize the 1st column of the approximate error matrix
             List<int> n0 = new List<int>();
             n0.Add(n[J[0]]);
             Matrix Rjk = UserImpedance(m, n0);
 
             //First column of U
+            U = new DenseMatrix(Rjk.RowCount, 1);
             U.SetColumn(0, Rjk.Column(0));
 
             // Norm of (approximate) Z, to test error
@@ -160,7 +169,8 @@ namespace ACASparseMatrix
                 }
             }
 
-            I[1] = i[row];
+            //I[1] = i[row];
+            I[1] = row;
             i.Remove(I[1]);
 
             //Iteration
@@ -169,8 +179,8 @@ namespace ACASparseMatrix
                 //Update (Ik)th row of the approximate error matrix:
                 List<int> t1 = new List<int>();
                 t1.Add(m[I[k]]);
-                Rik = (Matrix)(UserImpedance(t1, n) - U.SubMatrix(I[k], U.ColumnCount, 0, 1).Multiply(V));
-
+                Rik = (Matrix)(UserImpedance(t1, n) - U.SubMatrix(I[k], 1, 0, U.ColumnCount).Multiply(V));
+                //CHECKED OK all code before works fine
                 //Find kth column index Jk
                 max = -1.0;
                 col = 0;
@@ -184,7 +194,7 @@ namespace ACASparseMatrix
                     }
                 }
 
-                J[k] = j[col];
+                J[k] = col;
                 j.Remove(J[k]);
 
                 //Terminate if R(I(k),J(k)) == 0
@@ -198,14 +208,18 @@ namespace ACASparseMatrix
 
                 //Update (Jk)th column of the approximate error matrix
                 List<int> n1 = new List<int>();
-                n1.Add(J[k]);
-                Rjk = (Matrix)(UserImpedance(m, n1) - U.Multiply(V.SubMatrix(0, 1, J[k], V.RowCount)));
+                n1.Add(n[J[k]]);
+                Rjk = (Matrix)(UserImpedance(m, n1) - U.Multiply(V.SubMatrix(0, V.RowCount, J[k], 1)));
 
                 // Set k-th column of U equal to updated error
                 Matrix Uk = Rjk;
 
                 //Norm of approximate Z
-                Matrix s = (Matrix)(U.Transpose().Multiply(Uk)).Multiply((Vk.Multiply(V.Transpose())).Transpose());
+                //Matrix s = (Matrix)(U.Transpose().Multiply(Uk)).Multiply((Vk.Multiply(V.Transpose())).Transpose());
+                //Matrix s = (Matrix)((U.Transpose()).Multiply(Uk)).Multiply(((Vk.Multiply(V.Transpose())).Transpose()));
+                Matrix a = (Matrix)U.Transpose().Multiply(Uk);
+                Matrix b = (Matrix)Vk.Multiply(V.Transpose()).Transpose();
+                Matrix s = (Matrix)a.PointwiseMultiply(b);
                 double sum = 0;
 
                 for (int i1 = 0; i1 < s.RowCount; i1++)
@@ -222,8 +236,14 @@ namespace ACASparseMatrix
                 normZ += 2 * sum + d1 * d1 * d2 * d2;
 
                 //Update U and V
-                U.InsertColumn(U.ColumnCount - 1, Uk.Column(0));
-                V.InsertRow(V.RowCount - 1, Vk.Row(0));
+                
+
+                //U.SetColumn(U.ColumnCount - 1, Uk.Column(0));
+                //V.SetRow(V.RowCount - 1, Vk.Row(0));
+                U = AddColumn(U, (Vector)Uk.Column(0));
+                //U.SetColumn(k, Uk.Column(0));
+                V = AddRow(V, (Vector)Vk.Row(0));
+                //V.SetRow(k, Vk.Row(0));
 
                 if (d1 * d2 <= acaThres * Math.Sqrt(normZ))
                 {
@@ -240,17 +260,18 @@ namespace ACASparseMatrix
 
                 foreach (int ind in i)
                 {
-                    if (Math.Abs(Rjk[0, ind]) > max)
+                    if (Math.Abs(Rjk[ind, 0]) > max)
                     {
-                        max = Math.Abs(Rjk[0, ind]);
+                        max = Math.Abs(Rjk[ind, 0]);
                         row = ind;
                     }
                 }
 
-                I[k + 1] = i[row];
+                I[k + 1] = row;
                 //i = removeIndex(i,I[k+1]);
                 i.Remove(I[k + 1]);
             }
+            return new Tuple<Matrix, Matrix>(U, V);
         }
 
         /// <summary>
@@ -266,11 +287,11 @@ namespace ACASparseMatrix
 
             Matrix Z = new DenseMatrix(M, N);
 
-            for (int i = 1; i <= N; i++)
+            for (int i = 0; i < N; i++)
             {
-                for (int j = 1; j <= M; j++)
+                for (int j = 0; j < M; j++)
                 {
-                    Z[i, j] = 1.0 / (Math.Abs(m[j] - n[i] + 0.0001));
+                    Z[j, i] = 1.0 / (Math.Abs(m[j] - n[i] + 0.0001));
                 }
             }
 
@@ -279,10 +300,10 @@ namespace ACASparseMatrix
 
         #region MultilevelCompres
                                   //multilevel_compress(basis_func_boxes,ix_s,iy_s,iz_s,ix_f,iy_f,iz_f,l,L,ACA_thres,OG_data,EM_data)
-        public static NewSparseMatrix MultilevelCompres(BasicFuncBoxes basicFuncBoxes, double ix_s, double iy_s, double iz_s, double ix_f, double iy_f, double iz_f, int l, double L, double ACA_thres)
+        public static void MultilevelCompres(BasicFuncBoxes basicFuncBoxes, double ix_s, double iy_s, double iz_s, double ix_f, double iy_f, double iz_f, int l, double L, double ACA_thres,ref NewSparseMatrix Z_comp)
         {
-            bool sym_source_field = false;
-            NewSparseMatrix Z_comp = new NewSparseMatrix();
+            bool sym_source_field = true;
+            //NewSparseMatrix Z_comp = new NewSparseMatrix();
 
             for (double xchs = 0; xchs <= 1; xchs++)
             {
@@ -301,7 +322,7 @@ namespace ACASparseMatrix
                         List<int> m = new List<int>();
                         for (int i = 0; i < basicFuncBoxes.X.RowCount; i++)
                         {
-                            if (basicFuncBoxes.X[i, l + 1] == ix_chs && basicFuncBoxes.Y[i, l + 1] == iy_chs && basicFuncBoxes.Z[i, l + 1] == iz_chs)
+                            if (basicFuncBoxes.X[i, l] == ix_chs && basicFuncBoxes.Y[i, l] == iy_chs && basicFuncBoxes.Z[i, l] == iz_chs)
                             {
                                 m.Add(i);
                             }
@@ -329,7 +350,7 @@ namespace ACASparseMatrix
                                     List<int> n = new List<int>();
                                     for (int i = 0; i < basicFuncBoxes.X.RowCount; i++)
                                     {
-                                        if (basicFuncBoxes.X[i, l + 1] == ix_chf && basicFuncBoxes.Y[i, l + 1] == iy_chf && basicFuncBoxes.Z[i, l + 1] == iz_chf)
+                                        if (basicFuncBoxes.X[i, l] == ix_chf && basicFuncBoxes.Y[i, l] == iy_chf && basicFuncBoxes.Z[i, l] == iz_chf)
                                         {
                                             n.Add(i);
                                         }
@@ -351,9 +372,9 @@ namespace ACASparseMatrix
                                                 //[U,V] = ACA(ACA_thres, m,n, OG_data,EM_data);
                                                 DenseMatrix U = new DenseMatrix(1, 1);
                                                 DenseMatrix V = new DenseMatrix(1, 1);
-                                                Aca(ACA_thres, m, n, U, V);
+                                                Tuple<Matrix,Matrix> r = Aca(ACA_thres, m, n, U, V);
                                                 //Z_comp{length(Z_comp)+1} = struct('m',m,'n',n,'comp',1,'self',0,'Z',[] ,'U',U,'V',V);
-                                                Z_comp.Add(new ACAStruct(m,n,new DenseMatrix(1,1),U,V,1,0));
+                                                Z_comp.Add(new ACAStruct(m,n,new DenseMatrix(1,1),r.Item1,r.Item2,1,0));
                                             }
                                         }
                                         else
@@ -363,9 +384,9 @@ namespace ACASparseMatrix
                                             DenseMatrix U = new DenseMatrix(1, 1);
                                             DenseMatrix V = new DenseMatrix(1, 1);
                                             //[U,V] = ACA(ACA_thres, m,n, OG_data,EM_data);
-                                            Aca(ACA_thres, m, n, U, V);
+                                            Tuple<Matrix, Matrix> r = Aca(ACA_thres, m, n, U, V);
                                             //Z_comp{length(Z_comp)+1} = struct('m',m,'n',n,'comp',1,'self',0,'Z',[] ,'U',U,'V',V);
-                                            Z_comp.Add(new ACAStruct(m, n, new DenseMatrix(1, 1), U, V, 1, 0));
+                                            Z_comp.Add(new ACAStruct(m, n, new DenseMatrix(1, 1), r.Item1, r.Item2, 1, 0));
                                         }
                                     }
                                     else // Near-field boxes
@@ -382,12 +403,12 @@ namespace ACASparseMatrix
                                                      // Self-interactions
                                                      self = 1;
                                                      // Z_comp{length(Z_comp)+1} = struct('m',m,'n',n,'comp',0,'self',self,'Z', user_impedance(m,n,OG_data,EM_data),'U',[],'V',[]);
-                                                     Z_comp.Add(new ACAStruct(m, n, UserImpedance(m, n), new DenseMatrix(1, 1), new DenseMatrix(1, 1), 0, (int)self));
+                                                     Z_comp.Add(new ACAStruct(m, n, UserImpedance(m, n), new DenseMatrix(1, 1), new DenseMatrix(1, 1), 0, self));
                                                  }
                                                  if (ix_chs - ix_chf > 0 || ix_chs - ix_chf == 0 && iy_chs - iy_chf > 0 || ix_chs - ix_chf == 0 && iy_chs - iy_chf == 0 && iz_chs - iz_chf > 0)
                                                  {
                                                      //Z_comp{length(Z_comp)+1} = struct('m',m,'n',n,'comp',0,'self',self,'Z', user_impedance(m,n,OG_data,EM_data),'U',[],'V',[]);
-                                                     Z_comp.Add(new ACAStruct(m, n, UserImpedance(m, n), new DenseMatrix(1, 1), new DenseMatrix(1, 1), 0, (int)self));
+                                                     Z_comp.Add(new ACAStruct(m, n, UserImpedance(m, n), new DenseMatrix(1, 1), new DenseMatrix(1, 1), 0, self));
                                                  }
 
                                              }
@@ -409,7 +430,7 @@ namespace ACASparseMatrix
                                          {
                                              //Z_comp = [Z_comp multilevel_compress(basis_func_boxes,ix_chs,iy_chs,iz_chs,ix_chf,iy_chf,iz_chf,l+1,L,ACA_thres,OG_data,EM_data)];
                                                               //multilevel_compress(basis_func_boxes,ix_s,iy_s,iz_s,ix_f,iy_f,iz_f,l,L,ACA_thres,OG_data,EM_data)
-                                             Z_comp = MultilevelCompres(basicFuncBoxes,ix_chs,iy_chs,iz_chs,ix_chf,iy_chf,iz_chf,l+1,L,ACA_thres);
+                                             MultilevelCompres(basicFuncBoxes,ix_chs,iy_chs,iz_chs,ix_chf,iy_chf,iz_chf,l+1,L,ACA_thres,ref Z_comp);
                                             
                                          }
                                     }
@@ -421,9 +442,36 @@ namespace ACASparseMatrix
                 }
             }
 
-            return Z_comp;
+            //return Z_comp;
         }
         #endregion
 
+        /// <summary>
+        /// adds new column to matrix
+        /// </summary>
+        /// <param name="dest">matrix which add column</param>
+        /// <param name="colToAdd">column added to matrix</param>
+        /// <returns>new matrix</returns>
+        private static Matrix AddColumn(Matrix dest, Vector colToAdd)
+        {
+            Matrix res = new DenseMatrix(dest.RowCount, dest.ColumnCount + 1);
+            res.SetSubMatrix(0, dest.RowCount, 0, dest.ColumnCount, dest);
+            res.SetColumn(res.ColumnCount - 1, colToAdd);
+            return res;
+        }
+
+        /// <summary>
+        /// adds new row to matrix
+        /// </summary>
+        /// <param name="dest">matrix which add row</param>
+        /// <param name="rowToAdd">row added to matrix</param>
+        /// <returns>new matrix</returns>
+        private static Matrix AddRow(Matrix dest, Vector rowToAdd)
+        {
+            Matrix res = new DenseMatrix(dest.RowCount + 1, dest.ColumnCount);
+            res.SetSubMatrix(0, dest.RowCount, 0, dest.ColumnCount, dest);
+            res.SetRow(res.RowCount - 1, rowToAdd);
+            return res;
+        }
     }
 }

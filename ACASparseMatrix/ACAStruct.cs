@@ -38,9 +38,9 @@ namespace ACASparseMatrix
         Matrix V;
         
         //
-        int comp;
+        double comp;
         //
-        int self;
+        double self;
 
         //min and max in m
         int mMin, mMax;
@@ -85,8 +85,8 @@ namespace ACASparseMatrix
             Matrix Z1,
             Matrix U1,
             Matrix V1,
-            int Comp,
-            int Self            
+            double Comp,
+            double Self            
             )
         {
             m = M;
@@ -101,6 +101,9 @@ namespace ACASparseMatrix
 
             nMax = n.Max();
             nMin = n.Min();
+
+            comp = Comp;
+            self = Self;
         }
         #endregion
 
@@ -108,7 +111,7 @@ namespace ACASparseMatrix
         /// <summary>
         /// 
         /// </summary>
-        public int Comp
+        public double Comp
         {
             get
             {
@@ -119,7 +122,7 @@ namespace ACASparseMatrix
         /// <summary>
         /// 
         /// </summary>
-        public int Self
+        public double Self
         {
             get
             {

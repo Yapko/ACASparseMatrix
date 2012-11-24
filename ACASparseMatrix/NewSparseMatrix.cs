@@ -18,7 +18,7 @@ namespace ACASparseMatrix
     {
         List<ACAStruct> compressed;
 
-        public NewSparseMatrix():base(0, 0)
+        public NewSparseMatrix():base(1, 1)
         {
             compressed = new List<ACAStruct>();
         }
