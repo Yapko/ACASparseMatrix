@@ -318,19 +318,19 @@ namespace ACASparseMatrix
         #region MultilevelCompres
 
         /// <summary>
-        /// 
+        /// Compress Z submatrix with multilevel subdivision
         /// </summary>
-        /// <param name="basicFuncBoxes"></param>
-        /// <param name="ix_s"></param>
-        /// <param name="iy_s"></param>
-        /// <param name="iz_s"></param>
-        /// <param name="ix_f"></param>
-        /// <param name="iy_f"></param>
-        /// <param name="iz_f"></param>
-        /// <param name="l"></param>
-        /// <param name="L"></param>
-        /// <param name="ACA_thres"></param>
-        /// <param name="Z_comp"></param>                          
+        /// <param name="basicFuncBoxes">Information about the location of basis functions in boxes at different levels</param>
+        /// <param name="ix_s">x-index of source box at level l</param>
+        /// <param name="iy_s">y-index of source box at level l</param>
+        /// <param name="iz_s">z-index of source box at level l</param>
+        /// <param name="ix_f">x-index of field box at level l</param>
+        /// <param name="iy_f">y-index of field box at level l</param>
+        /// <param name="iz_f">z-index of field box at level l</param>
+        /// <param name="l">Current level</param>
+        /// <param name="L">Maximum level to end multilevel subdivion</param>
+        /// <param name="ACA_thres">Relative error threshold to stop adding rows and columns in ACA iteration</param>
+        /// <param name="Z_comp">compressed matrix</param>                          
         public static void MultilevelCompres(BasicFuncBoxes basicFuncBoxes, double ix_s, double iy_s, double iz_s, double ix_f, double iy_f, double iz_f, int l, double L, double ACA_thres,ref NewSparseMatrix Z_comp)
         {
             bool sym_source_field = true;

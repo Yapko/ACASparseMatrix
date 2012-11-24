@@ -54,6 +54,7 @@
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>
+    <Content Include="J.txt" />
     <Content Include="X.txt" />
     <Content Include="Y.txt" />
     <Content Include="Z.txt" />

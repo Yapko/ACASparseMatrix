@@ -28,6 +28,8 @@ namespace ACASparseMatrix
             StreamReader yRead = new StreamReader("Y.txt");
             StreamReader zRead = new StreamReader("Z.txt");
 
+            StreamReader jRead = new StreamReader("J.txt");
+
             Vector rcx;
             Vector rcy;
             Vector rcz;
@@ -83,7 +85,23 @@ namespace ACASparseMatrix
             BasicFuncBoxes bfb = ACA.PrepareMultilevel(rcx, rcy, rcz, N, finest_level_size);
             NewSparseMatrix Z_comp = new NewSparseMatrix();
             ACA.MultilevelCompres(bfb, 0, 0, 0, 0, 0, 0, 0, bfb.L, ACA_thres, ref Z_comp);            
-                                 
+                   
+            
+  
+            //testing Multiply(matvec in mathlab)
+            Vector J = new DenseVector(3072);
+            int k = 0;
+            while (jRead.EndOfStream == false)
+            {
+                string s = jRead.ReadLine();
+                string[] a = s.Split(' ');
+                int p = 3;
+                if (a.Length == 5) p = 2;
+                J[k] = double.Parse(a[p].Replace('.',','));
+                k++;
+            }
+
+            Vector r = Z_comp.Multiply(J, true);
         }
     }
 }

@@ -68,10 +68,12 @@ namespace ACASparseMatrix
         }
         private Vector MultiplyByIndex(Matrix RightM, Vector LeftV, List<int> Index)
         {
-            Vector leftVector = new DenseVector(0);
+            Vector leftVector = new DenseVector(Index.Count);
+            int i = 0;
             foreach (int index in Index)
             {
-                leftVector.Add(LeftV[index]);
+                leftVector[i] = LeftV[index];
+                i++;
             }
             leftVector = (Vector)RightM.Multiply(leftVector);
             return leftVector;
@@ -79,7 +81,7 @@ namespace ACASparseMatrix
 
         private Vector AddByIndex(Vector LeftV, List<int> LeftVIndex, Vector RighV)
         {
-            Vector resultV = new DenseVector(RighV.Count);
+            Vector resultV = new DenseVector(LeftV);
             int count = 0;
             foreach (int index in LeftVIndex)
             {
@@ -94,14 +96,15 @@ namespace ACASparseMatrix
             NewSparseMatrix Zcomp = this;
             Vector y = new DenseVector(J.Count);
             int Nblocks = Zcomp.Count;
-            for (int nb = 1; nb <= Nblocks; nb++)
+            for (int nb = 0; nb < Nblocks; nb++)
             {
                 List<int> m = Zcomp[nb].GetM;
                 List<int> n = Zcomp[nb].GetN;
-                if (Zcomp[nb].Self == 1) // Self-interactions
+                if (Zcomp[nb].Self == 1.0) // Self-interactions
                 {
                     //y(m) = y(m) + Zcomp[nb].Z * J(n);
-                    AddByIndex(y, m, MultiplyByIndex(Zcomp[nb].Z_Matrix, J, n));
+                    Vector t = MultiplyByIndex(Zcomp[nb].Z_Matrix, J, n);
+                    y = AddByIndex(y, m, t);
                 }
                 else //Non-self-interactions
                 {
@@ -110,19 +113,18 @@ namespace ACASparseMatrix
                         if (Zcomp[nb].Comp == 0)
                         {
                             //y(m) = y(m) + Zcomp[nb].Z_Matrix * J(n);
-                            AddByIndex(y, m, MultiplyByIndex(Zcomp[nb].Z_Matrix, J, n));
+                            y = AddByIndex(y, m, MultiplyByIndex(Zcomp[nb].Z_Matrix, J, n));
                             //y(n) = y(n) + Zcomp[nb].Z_Matrix.Transpose() * J(m);
                             //if comlex use complex conjugate transpose of Z_Matrix elements
-                            AddByIndex(y, n, MultiplyByIndex(Zcomp[nb].Z_Matrix, J, m));
+                            y = AddByIndex(y, n, MultiplyByIndex((Matrix)Zcomp[nb].Z_Matrix.Transpose(), J, m));
                         }
                         else
-                        {
-                            
+                        {                            
                             //y(m) = y(m) + Zcomp[nb].U_Vector * (Zcomp[nb].V_Vector * J(n));
-                            AddByIndex(y, m, (Vector)Zcomp[nb].U_Vector.Multiply(MultiplyByIndex(Zcomp[nb].V_Vector, J, n)));
+                            y = AddByIndex(y, m, (Vector)Zcomp[nb].U_Vector.Multiply( MultiplyByIndex(Zcomp[nb].V_Vector, J, n) ));
                             //y(n) = y(n) + Zcomp[nb].V_Vector.T * (Zcomp[nb].U_Vector.T * J(m));
                             //if comlex use complex conjugate transpose of V elements and U elements.
-                            AddByIndex(y, n, (Vector)Zcomp[nb].V_Vector.Multiply(MultiplyByIndex(Zcomp[nb].U_Vector, J, m)));
+                            y = AddByIndex(y, n, (Vector)Zcomp[nb].V_Vector.Transpose().Multiply( MultiplyByIndex( (Matrix)Zcomp[nb].U_Vector.Transpose(), J, m) ) );
                          }
                     }
                     else //All the interactions have been computed
@@ -130,12 +132,12 @@ namespace ACASparseMatrix
                         if (Zcomp[nb].Comp == 0)
                         {
                             //y(m) = y(m) + Zcomp[nb].Z_Matrix * J(n);
-                            AddByIndex(y, m, MultiplyByIndex(Zcomp[nb].Z_Matrix, J, n));
+                            y = AddByIndex(y, m, MultiplyByIndex(Zcomp[nb].Z_Matrix, J, n));
                         }
                         else
                         {
                             //y(m) = y(m) + Zcomp[nb].U_Vector * (Zcomp[nb].V_Vector * J(n));
-                            AddByIndex(y, m, (Vector)Zcomp[nb].U_Vector.Multiply(MultiplyByIndex(Zcomp[nb].V_Vector, J, n)));
+                            y = AddByIndex(y, m, (Vector)Zcomp[nb].U_Vector.Multiply( MultiplyByIndex(Zcomp[nb].V_Vector, J, n) ));
                         }
                     }
                 }
