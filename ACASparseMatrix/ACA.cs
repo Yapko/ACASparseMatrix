@@ -6,8 +6,24 @@ using MathNet.Numerics.LinearAlgebra.Double;
 
 namespace ACASparseMatrix
 {
+    /// <summary>
+    /// class represents methods to complete
+    /// Adaptive Cross Approximation
+    /// </summary>
     class ACA
     {
+        /// <summary>
+        /// Compute indices of boxes at all levels for each basis function
+        /// </summary>
+        /// <param name="rcx">x-coordinates of basis functions centers</param>
+        /// <param name="rcy">y-coordinates of basis functions centers</param>
+        /// <param name="rcz">z-coordinates of basis functions centers</param>
+        /// <param name="N">Number of basis functions (length of rcx, rcy, and rcz)</param>
+        /// <param name="finest_level_size">size of finest level in multilevel subdivision</param>
+        /// <returns>
+        /// Matrix with one column per level in multilevel subdivision
+        /// Columns contain the box index in which a basis function is located                    Row index is the basis function index
+        /// </returns>
         public static BasicFuncBoxes PrepareMultilevel(Vector rcx, Vector rcy, Vector rcz, int N, double finest_level_size)
         {
             double xmax = rcx.Max(); double xmin = rcx.Min();
@@ -66,6 +82,7 @@ namespace ACASparseMatrix
         /// <param name="n">Column indices of Z submatrix to compress</param>
         /// <param name="U">to store result</param>
         /// <param name="V">to store result</param>
+        /// <returns>pair with matrix U and V</returns>
         public static Tuple<Matrix,Matrix> Aca(double acaThres, List<int> m, List<int> n, Matrix U, Matrix V)
         {
             int M = m.Count;
@@ -299,7 +316,21 @@ namespace ACASparseMatrix
         }
 
         #region MultilevelCompres
-                                  //multilevel_compress(basis_func_boxes,ix_s,iy_s,iz_s,ix_f,iy_f,iz_f,l,L,ACA_thres,OG_data,EM_data)
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="basicFuncBoxes"></param>
+        /// <param name="ix_s"></param>
+        /// <param name="iy_s"></param>
+        /// <param name="iz_s"></param>
+        /// <param name="ix_f"></param>
+        /// <param name="iy_f"></param>
+        /// <param name="iz_f"></param>
+        /// <param name="l"></param>
+        /// <param name="L"></param>
+        /// <param name="ACA_thres"></param>
+        /// <param name="Z_comp"></param>                          
         public static void MultilevelCompres(BasicFuncBoxes basicFuncBoxes, double ix_s, double iy_s, double iz_s, double ix_f, double iy_f, double iz_f, int l, double L, double ACA_thres,ref NewSparseMatrix Z_comp)
         {
             bool sym_source_field = true;
